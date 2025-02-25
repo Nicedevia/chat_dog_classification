@@ -2,14 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import tensorflow as tf
-import cv2
-import numpy as np
 import os
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from tqdm.keras import TqdmCallback  # Import correct de TqdmCallback
+from tqdm.keras import TqdmCallback
 
-# Répertoires pour les images d'entraînement
+# Répertoire pour les images d'entraînement
 TRAIN_IMAGE_DIR = "data/images/cleaned/training_set"
 
 # Paramètres
@@ -32,7 +30,7 @@ train_datagen = ImageDataGenerator(
 train_generator = train_datagen.flow_from_directory(
     TRAIN_IMAGE_DIR,
     target_size=IMG_SIZE,
-    color_mode="grayscale",
+    color_mode="grayscale",  # Conserve le format grayscale
     batch_size=BATCH_SIZE,
     class_mode="binary",  # 0 pour Chat, 1 pour Chien
     subset='training'
@@ -47,15 +45,37 @@ validation_generator = train_datagen.flow_from_directory(
     subset='validation'
 )
 
-# Construction du modèle CNN pour les images
+# Construction d'un modèle CNN amélioré pour les images
 model = tf.keras.Sequential([
-    tf.keras.layers.Conv2D(64, (3, 3), activation="relu", input_shape=(IMG_SIZE[0], IMG_SIZE[1], 1)),
+    # Bloc 1
+    tf.keras.layers.Conv2D(32, (3, 3), activation="relu", input_shape=(IMG_SIZE[0], IMG_SIZE[1], 1)),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Conv2D(32, (3, 3), activation="relu"),
+    tf.keras.layers.BatchNormalization(),
     tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Dropout(0.25),
+    
+    # Bloc 2
+    tf.keras.layers.Conv2D(64, (3, 3), activation="relu"),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Conv2D(64, (3, 3), activation="relu"),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Dropout(0.25),
+    
+    # Bloc 3
     tf.keras.layers.Conv2D(128, (3, 3), activation="relu"),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Conv2D(128, (3, 3), activation="relu"),
+    tf.keras.layers.BatchNormalization(),
     tf.keras.layers.MaxPooling2D(2, 2),
+    tf.keras.layers.Dropout(0.25),
+    
+    # Classification
     tf.keras.layers.Flatten(),
     tf.keras.layers.Dense(256, activation="relu"),
-    tf.keras.layers.Dropout(0.3),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dropout(0.5),
     tf.keras.layers.Dense(1, activation="sigmoid")
 ])
 

@@ -6,9 +6,14 @@ import zipfile
 import shutil
 
 # ====================================================
-# Définition des chemins
+# Choix du dataset à extraire
 # ====================================================
-ZIP_FILE = "data/cat-and-dog.zip"
+# Pour le dataset amélioré (25 000 images, 22 500 en train et 2 500 en test)
+ZIP_FILE = "data/Cat_Dog_data.zip"  
+# Si vous souhaitez revenir à l'ancien dataset, vous pouvez le changer par :
+# ZIP_FILE = "data/cat-and-dog.zip"
+
+# Dossier de destination pour l'extraction
 EXTRACT_DIR = "data/extracted"
 
 # ====================================================
@@ -63,9 +68,8 @@ def flatten_structure():
 # ====================================================
 def reorganize_images():
     """
-    Déplace toutes les images trouvées dans n'importe quel sous-dossier de
-    chaque ensemble (training_set et test_set) vers les dossiers cibles :
-    data/extracted/{split}/cats ou .../dogs
+    Parcourt récursivement chaque ensemble (training_set et test_set) et déplace
+    les images trouvées vers les dossiers cibles : data/extracted/{split}/cats ou .../dogs
     """
     for split in ["training_set", "test_set"]:
         split_path = os.path.join(EXTRACT_DIR, split)
@@ -73,28 +77,27 @@ def reorganize_images():
             print(f"❌ Le dossier {split_path} est introuvable.")
             continue
 
-        # Créer les dossiers cibles si besoin
+        # Créer les dossiers cibles pour chaque catégorie s'ils n'existent pas
         for category in ["cats", "dogs"]:
             target_dir = os.path.join(split_path, category)
             os.makedirs(target_dir, exist_ok=True)
 
         # Parcourir récursivement le dossier split
         for root, dirs, files in os.walk(split_path):
-            # Ignorer les dossiers cibles déjà organisés
+            # Ignorer les dossiers cibles déjà organisés pour éviter de retraiter
             if os.path.basename(root) in ["cats", "dogs"]:
                 continue
             for file in files:
-                if file.lower().endswith((".jpg", ".png")):
+                if file.lower().endswith((".jpg", ".png", ".jpeg")):
                     lower_file = file.lower()
                     if "cat" in lower_file:
                         dest_folder = os.path.join(split_path, "cats")
                     elif "dog" in lower_file:
                         dest_folder = os.path.join(split_path, "dogs")
                     else:
-                        continue
+                        continue  # Ne traite que les images identifiables par leur nom
                     src_file = os.path.join(root, file)
                     dest_file = os.path.join(dest_folder, file)
-                    # Si le fichier n'est pas déjà à la bonne place
                     if os.path.abspath(src_file) != os.path.abspath(dest_file):
                         if os.path.exists(dest_file):
                             print(f"⚠️ Doublon pour {file} dans {dest_folder}, fichier ignoré.")
@@ -111,11 +114,9 @@ def remove_empty_dirs():
     indésirables comme _DS_Store.
     """
     for dirpath, dirnames, filenames in os.walk(EXTRACT_DIR, topdown=False):
-        # Supprimer les fichiers inutiles
         for f in filenames:
             if f == "_DS_Store" or f.startswith('.'):
                 os.remove(os.path.join(dirpath, f))
-        # Supprimer le dossier s'il est vide
         if not os.listdir(dirpath):
             os.rmdir(dirpath)
             print(f"🗑️ Dossier vide supprimé : {dirpath}")
@@ -129,7 +130,7 @@ def verify_structure():
         for category in ["cats", "dogs"]:
             path = os.path.join(EXTRACT_DIR, split, category)
             if os.path.exists(path):
-                files = [f for f in os.listdir(path) if f.lower().endswith((".jpg", ".png"))]
+                files = [f for f in os.listdir(path) if f.lower().endswith((".jpg", ".png", ".jpeg"))]
                 print(f"{path}: {len(files)} images")
             else:
                 print(f"❌ {path} n'existe pas.")
@@ -138,12 +139,16 @@ def verify_structure():
 # Fonction principale
 # ====================================================
 def main():
+    print("🔄 Extraction du dataset...")
     extract_zip(ZIP_FILE, EXTRACT_DIR)
+    print("🔄 Correction de la structure...")
     flatten_structure()
+    print("🔄 Réorganisation des images...")
     reorganize_images()
+    print("🔄 Suppression des dossiers vides et fichiers inutiles...")
     remove_empty_dirs()
     verify_structure()
-    print("\n✅ Traitement terminé. La structure dans 'data/extracted' contient uniquement les dossiers nécessaires.")
+    print("\n✅ Traitement terminé. La structure dans 'data/extracted' est maintenant propre.")
 
 if __name__ == "__main__":
     main()

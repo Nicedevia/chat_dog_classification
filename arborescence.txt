@@ -1,6 +1,4 @@
 📂 chat_dog_classification/
-    📄 .gitignore
-    📄 .gitkeep
     📄 arborescence.txt
     📄 clean_data.py
     📄 clean_project.sh
@@ -9,12 +7,13 @@
     📄 main.py
     📄 README.md
     📄 requirements.txt
+    📄 test_results_fusion_v2.csv
     📄 test_results_v3.csv
     📄 test_results_v6.csv
     📄 test_results_v7.csv
+    📄 test_results_v8.csv
     🖼 3 fichiers .png
     📂 api/
-        📄 .gitkeep
         📄 api.py
         📄 model_loader.py
         📄 routes.py
@@ -23,10 +22,35 @@
     📂 data/
         📄 audio-cats-and-dogs.zip
         📄 cat-and-dog.zip
+        📄 Cat_Dog_data.zip
         📂 audio/
+            📄 test_image_audio_mapping.csv
+            📄 train_image_audio_fusion_mapping.csv
+            📄 train_image_audio_mapping.csv
+            📄 train_test_split.csv
             📄 utils.py
             📂 cleaned/
+                📂 test/
+                    📂 cats/
+                        🎵 39 fichiers .wav
+                    📂 dogs/
+                        🎵 28 fichiers .wav
+                📂 train/
+                    📂 cats/
+                        🎵 125 fichiers .wav
+                    📂 dogs/
+                        🎵 85 fichiers .wav
             📂 spectrograms/
+                📂 test/
+                    📂 cats/
+                        🖼 39 fichiers .png
+                    📂 dogs/
+                        🖼 28 fichiers .png
+                📂 train/
+                    📂 cats/
+                        🖼 125 fichiers .png
+                    📂 dogs/
+                        🖼 85 fichiers .png
             📂 test/
                 📂 cats/
                 📂 dogs/
@@ -34,11 +58,39 @@
                 📂 cats/
                 📂 dogs/
         📂 extracted/
+            📂 test_set/
+                📂 cats/
+                📂 dogs/
+            📂 training_set/
+                📂 cats/
+                📂 dogs/
+            📂 __MACOSX/
+                📂 Cat_Dog_data/
+                    📂 test/
+                        📂 cat/
+                            📸 1250 fichiers .jpg/.jpeg
+                        📂 dog/
+                            📸 1250 fichiers .jpg/.jpeg
+                    📂 train/
+                        📂 cat/
+                            📸 11250 fichiers .jpg/.jpeg
+                        📂 dog/
+                            📸 11250 fichiers .jpg/.jpeg
         📂 images/
             📂 cleaned/
+                📂 test_set/
+                    📂 cats/
+                        📸 1250 fichiers .jpg/.jpeg
+                    📂 dogs/
+                        📸 1250 fichiers .jpg/.jpeg
+                📂 training_set/
+                    📂 cats/
+                        📸 11248 fichiers .jpg/.jpeg
+                    📂 dogs/
+                        📸 11249 fichiers .jpg/.jpeg
     📂 frontend/
-        📄 .gitkeep
         📄 app.py
+        📄 frontend_classification.py
     📂 logs/
         📂 audio_image_classifier/
             📂 train/
@@ -50,13 +102,12 @@
                 📄 events.out.tfevents.1739977780.DESKTOP-8KG8OD6.28260.1.v2
                 📄 events.out.tfevents.1740053092.DESKTOP-8KG8OD6.21716.1.v2
     📂 models/
-        📄 .gitkeep
         📄 audio_classifier.keras
         📄 audio_image_classifier.keras
         📄 image_audio_fusion_model.keras
+        📄 image_audio_fusion_model_v2.keras
         📄 image_classifier.keras
     📂 scripts/
-        📄 .gitkeep
         📄 augment_audio.py
         📄 check_arborescence.py
         📄 check_data_integrity.py
@@ -67,6 +118,8 @@
         📄 download_data.py
         📄 extract_data.py
         📄 extract_images.py
+        📄 fusion_model_v2.py
+        📄 fusion_model_v3.py
         📄 generate_mapping_fixed.py
         📄 generate_spectrograms.py
         📄 generate_train_mapping.py
@@ -76,6 +129,7 @@
         📄 preprocess_images.py
         📄 run_all.sh
         📄 sync_audio_images.py
+        📄 test_fusion_model_v2.py
         📄 test_model.py
         📄 test_model_audio_only.py
         📄 test_model_final.py
@@ -87,8 +141,6 @@
         📄 train_image_only.py
         📄 train_model.py
     📂 tests/
-        📄 .gitkeep
         📄 test_api.py
     📂 utils/
-        📄 .gitkeep
         📄 helpers.py

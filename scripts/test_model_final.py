@@ -6,34 +6,49 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 import cv2
-import librosa
-import librosa.display
-import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+from sklearn.metrics import classification_report, confusion_matrix  # roc_curve, auc supprimés
+from sklearn.preprocessing import label_binarize
 
-# 📂 Définition des chemins
-MODEL_PATH = "models/image_audio_fusion_model.keras"
+# ----- Configuration -----
+# Chemin du mapping de test (assurez-vous que ce fichier contient les colonnes "image_path" et "audio_path")
 TEST_CSV = "data/audio/test_image_audio_mapping.csv"
 
-# 🚀 Chargement du modèle fusionné
-print("🔄 Chargement du modèle fusionné...")
-model = tf.keras.models.load_model(MODEL_PATH)
-print("✅ Modèle chargé avec succès !")
+# Chemins des modèles individuels
+IMAGE_MODEL_PATH = "models/image_classifier.keras"
+AUDIO_MODEL_PATH = "models/audio_classifier.keras"
 
-# 🎨 Prétraitement de l'image
+# ----- Chargement des modèles individuels -----
+print("🔄 Chargement du modèle image...")
+image_model = tf.keras.models.load_model(IMAGE_MODEL_PATH)
+print("✅ Modèle image chargé.")
+
+print("🔄 Chargement du modèle audio...")
+audio_model = tf.keras.models.load_model(AUDIO_MODEL_PATH)
+print("✅ Modèle audio chargé.")
+
+# ----- Fonctions de prétraitement -----
 def preprocess_image(image_path):
+    """Charge et prétraite une image en niveaux de gris."""
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         return None
     img = cv2.resize(img, (64, 64)) / 255.0
     return img.reshape(1, 64, 64, 1)
 
-# 🎵 Prétraitement de l'audio : on charge le spectrogramme pré-généré
 def preprocess_audio(audio_path):
-    # Transformation du chemin : de "cleaned" vers "spectrograms" et extension .png
+    """
+    Charge le spectrogramme pré-généré correspondant au fichier audio.
+    On suppose que le chemin audio est de la forme :
+        data/audio/cleaned/...
+    et que le spectrogramme est pré-généré dans :
+        data/audio/spectrograms/...
+    avec l'extension .wav remplacée par .png.
+    """
     spec_path = audio_path.replace("cleaned", "spectrograms").replace(".wav", ".png")
     if not os.path.exists(spec_path):
+        print(f"❌ Spectrogramme introuvable pour {audio_path} -> {spec_path}")
         return None
     spec_img = cv2.imread(spec_path, cv2.IMREAD_GRAYSCALE)
     if spec_img is None:
@@ -41,27 +56,26 @@ def preprocess_audio(audio_path):
     spec_img = cv2.resize(spec_img, (64, 64)) / 255.0
     return spec_img.reshape(1, 64, 64, 1)
 
-print("🔄 Prétraitement des données de test...")
+# ----- Chargement du mapping de test -----
+print("🔄 Chargement du mapping de test...")
 test_df = pd.read_csv(TEST_CSV)
-X_images, X_audio, y_true = [], [], []
+
+X_images, X_audio = [], []
+y_true = []  # Étiquette "virtuelle" dérivée du nom de fichier
 
 for _, row in test_df.iterrows():
-    img_path, audio_path = row["image_path"], row["audio_path"]
-
+    img_path = row["image_path"]
+    audio_path = row["audio_path"]
     if not os.path.exists(img_path) or not os.path.exists(audio_path):
         continue
-
-    proc_img = preprocess_image(img_path)
-    proc_audio = preprocess_audio(audio_path)
-    if proc_img is None or proc_audio is None:
+    X_img = preprocess_image(img_path)
+    X_aud = preprocess_audio(audio_path)
+    if X_img is None or X_aud is None:
         continue
-
-    X_images.append(proc_img)
-    X_audio.append(proc_audio)
-
-    # 🔍 Définition du label :
-    # Si image et audio indiquent la même catégorie, on attribue le label (0 = Chat, 1 = Chien)
-    # Sinon, on attribue le label 2 (Erreur)
+    X_images.append(X_img)
+    X_audio.append(X_aud)
+    # Définir le label à partir des chemins :
+    # Si les deux chemins contiennent "cats", label = 0 ; s'ils contiennent "dogs", label = 1 ; sinon, label = 2.
     if "cats" in img_path.lower() and "cats" in audio_path.lower():
         y_true.append(0)
     elif "dogs" in img_path.lower() and "dogs" in audio_path.lower():
@@ -73,37 +87,55 @@ if len(X_images) == 0 or len(X_audio) == 0:
     print("❌ Aucun échantillon de test valide trouvé.")
     exit()
 
+# Convertir les listes en tenseurs
 X_images = np.vstack(X_images)
 X_audio = np.vstack(X_audio)
 y_true = np.array(y_true)
 
-print("🔄 Prédictions en cours...")
-y_pred_probs = model.predict([X_images, X_audio])
-y_pred = np.argmax(y_pred_probs, axis=1)
+print(f"🔄 Nombre d'échantillons de test utilisés : {X_images.shape[0]}")
 
-# Détection des labels uniques présents dans le jeu de test
-unique_labels = np.unique(y_true)
+# ----- Prédictions individuelles -----
+# Prédiction du modèle image (sortie sigmoïde, seuil 0.5)
+image_preds_prob = image_model.predict(X_images)
+image_preds = (image_preds_prob > 0.5).astype(int).reshape(-1)
+
+# Prédiction du modèle audio (sortie sigmoïde, seuil 0.5)
+audio_preds_prob = audio_model.predict(X_audio)
+audio_preds = (audio_preds_prob > 0.5).astype(int).reshape(-1)
+
+# ----- Fusion des prédictions -----
+# Si les deux prédictions (image et audio) sont identiques, la prédiction finale est cette valeur (0 ou 1).
+# Sinon, on considère que le modèle est en désaccord et on définit la prédiction finale comme 2 (Erreur).
+y_pred_final = []
+for img_pred, aud_pred in zip(image_preds, audio_preds):
+    if img_pred == aud_pred:
+        y_pred_final.append(img_pred)
+    else:
+        y_pred_final.append(2)
+y_pred_final = np.array(y_pred_final)
+
+# ----- Évaluation -----
 label_names = {0: "Chat", 1: "Chien", 2: "Erreur"}
-target_names = [label_names[l] for l in unique_labels]
+target_names = [label_names[0], label_names[1], label_names[2]]
 
 print("\n📌 Rapport de classification :")
-print(classification_report(y_true, y_pred, labels=unique_labels, target_names=target_names))
+print(classification_report(y_true, y_pred_final, target_names=target_names))
 
-conf_matrix = confusion_matrix(y_true, y_pred)
+conf_matrix = confusion_matrix(y_true, y_pred_final, labels=[0, 1, 2])
 plt.figure(figsize=(6,6))
 sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues",
-            xticklabels=[label_names[l] for l in unique_labels],
-            yticklabels=[label_names[l] for l in unique_labels])
+            xticklabels=target_names, yticklabels=target_names)
 plt.xlabel("Prédictions")
 plt.ylabel("Vraies Classes")
 plt.title("Matrice de Confusion")
 plt.show()
 
-accuracy = np.mean(y_pred == y_true) * 100
-print(f"\n🎯 Test Accuracy (Fusion): {accuracy:.2f}%")
 
-# 💾 Sauvegarde des résultats
-test_results_path = "test_results_v7.csv"
-test_df["prediction"] = y_pred
-test_df.to_csv(test_results_path, index=False)
-print(f"\n✅ Résultats sauvegardés dans {test_results_path}")
+accuracy = np.mean(y_pred_final == y_true) * 100
+print(f"\n🎯 Test Accuracy (Ensemble): {accuracy:.2f}%")
+
+# ----- Sauvegarde des résultats -----
+OUTPUT_RESULTS = "test_results_v7.csv"
+test_df["prediction"] = y_pred_final
+test_df.to_csv(OUTPUT_RESULTS, index=False)
+print(f"\n✅ Résultats sauvegardés dans {OUTPUT_RESULTS}")
